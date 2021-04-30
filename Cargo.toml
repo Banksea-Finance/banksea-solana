@@ -1,0 +1,23 @@
+[package]
+name = "banksy-solana"
+version = "0.0.1"
+description = "Example template program written in Rust"
+authors = ["Banksy <clink.banksy@gmail.com>"]
+license = "Apache-2.0"
+edition = "2018"
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+borsh = "0.7.1"
+borsh-derive = "0.8.1"
+solana-program = "=1.6.6"
+
+[dev-dependencies]
+solana-program-test = "=1.6.6"
+solana-sdk = "=1.6.6"
+
+[lib]
+name = "banksy"
+crate-type = ["cdylib", "lib"]
