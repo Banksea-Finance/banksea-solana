@@ -16,20 +16,20 @@ pub mod banksy {
     }
 
 
-    pub fn create_owner(ctx: Context<CreateOwner>) -> ProgramResult {
-        ctx.accounts.owner.authority = *ctx.accounts.authority.key;
-        ctx.accounts.owner.nft = *ctx.accounts.nft.to_account_info().key;
-        ctx.accounts.owner.amount = 0;
+    pub fn create_user(ctx: Context<CreateUser>) -> ProgramResult {
+        ctx.accounts.user.authority = *ctx.accounts.authority.key;
+        ctx.accounts.user.nft = *ctx.accounts.nft.to_account_info().key;
+        ctx.accounts.user.amount = 0;
         Ok(())
     }
 
     pub fn dist_to(ctx: Context<DistTo>, amount: u64) -> ProgramResult {
         ctx.accounts.nft.remain = ctx.accounts.nft.remain.checked_sub(amount).unwrap();
-        ctx.accounts.owner.amount = ctx.accounts.owner.amount.checked_add(amount).unwrap();
+        ctx.accounts.user.amount = ctx.accounts.user.amount.checked_add(amount).unwrap();
         emit!(TransferEvent{
             nft: *ctx.accounts.nft.to_account_info().key, 
             from: Pubkey::new(&[0u8; 32]), 
-            to: *ctx.accounts.owner.to_account_info().key, 
+            to: *ctx.accounts.user.to_account_info().key, 
             amount: amount
         });
         Ok(())
@@ -70,7 +70,7 @@ pub mod banksy {
 #[derive(Accounts)]
 pub struct CreateNft<'info> {
     #[account(init)]
-    pub nft: ProgramAccount<'info, Nft>,
+    pub nft: ProgramAccount<'info, NftAccount>,
     #[account(signer)]
     pub authority: AccountInfo<'info>,
     pub rent: Sysvar<'info, Rent>,
@@ -82,17 +82,17 @@ pub struct DistTo<'info> {
     #[account(signer)]
     pub authority: AccountInfo<'info>,
     #[account(mut)]
-    pub nft: ProgramAccount<'info, Nft>,
+    pub nft: ProgramAccount<'info, NftAccount>,
     #[account(mut, has_one = authority, has_one = nft)]
-    pub owner: ProgramAccount<'info, Owner>,
+    pub user: ProgramAccount<'info, UserAccount>,
 }
 
 
 #[derive(Accounts)]
-pub struct CreateOwner<'info> {
+pub struct CreateUser<'info> {
     #[account(init)]
-    pub owner: ProgramAccount<'info, Owner>,
-    pub nft: ProgramAccount<'info, Nft>,
+    pub user: ProgramAccount<'info, UserAccount>,
+    pub nft: ProgramAccount<'info, NftAccount>,
     #[account(signer)]
     pub authority: AccountInfo<'info>,
     pub rent: Sysvar<'info, Rent>,
@@ -102,9 +102,9 @@ pub struct CreateOwner<'info> {
 #[derive(Accounts)]
 pub struct Transfer<'info> {
     #[account(mut, has_one = authority)]
-    pub from: ProgramAccount<'info, Owner>,
+    pub from: ProgramAccount<'info, UserAccount>,
     #[account(mut)]
-    pub to: ProgramAccount<'info, Owner>,
+    pub to: ProgramAccount<'info, UserAccount>,
     #[account(signer)]
     pub authority: AccountInfo<'info>,
 }
@@ -112,21 +112,21 @@ pub struct Transfer<'info> {
 #[derive(Accounts)]
 pub struct Approval<'info> {
     #[account(mut, has_one = authority)]
-    pub to: ProgramAccount<'info, Owner>,
+    pub to: ProgramAccount<'info, UserAccount>,
     pub delegate: AccountInfo<'info>,
     #[account(signer)]
     pub authority: AccountInfo<'info>,
 }
 
 #[account]
-pub struct Nft {
+pub struct NftAccount {
     pub supply: u64,
     pub remain: u64,
     pub uri: [u8; 128],
 }
 
 #[account]
-pub struct Owner {
+pub struct UserAccount {
     pub authority: Pubkey,
     pub nft: Pubkey,
     pub amount: u64,
