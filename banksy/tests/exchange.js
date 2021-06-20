@@ -11,15 +11,90 @@ describe("start exchange", () =>{
     const price = new anchor.BN(10);
 
     it("create a exchange", async() => {
-        const {exchange, seller, itemHolder} = await createExchange(provider, program, price);
+        const {exchange, seller, itemHolder, itemPublicKey, currencyPubkey} = await createExchange(provider, program, price);
 
         const exchangeAccount = await program.account.exchange.fetch(exchange.publicKey);
 
         assert.ok(exchangeAccount.ongoing);
         assert.ok(exchangeAccount.seller.equals(seller.publicKey));
         assert.ok(exchangeAccount.itemHolder.equals(itemHolder));
+    });
+
+    /*it("close a auction which no one bid", async () => {
+      const {exchange, seller, itemHolder, itemPublicKey, currencyPubkey} = await createExchange(provider, program, price);
+  
+      let itemReceiver = await createTokenAccountWithBalance(provider, itemPublicKey, seller.publicKey, 0);
+      let currencyReceiver = await createTokenAccountWithBalance(provider, currencyPubkey, seller.publicKey, 0);
+  
+      let exchangeAccount = await program.account.exchange.fetch(exchange.publicKey);
+      let [pda] = await anchor.web3.PublicKey.findProgramAddress([exchangeAccount.seller.toBuffer()], program.programId);
+      let currencyHolder = exchangeAccount.currencyHolder;
+      await program.rpc.closeAuction({
+        accounts: {
+          exchange: exchange.publicKey,
+          seller: seller.publicKey,
+          itemHolder: itemHolder,
+          itemHolderAuth: pda,
+          itemReceiver: itemReceiver,
+          currencyHolder: currencyHolder,
+          currencyHolderAuth: pda,
+          currencyReceiver: currencyReceiver,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        },
+        signers: [seller],
+      });
+  
+      exchangeAccount2 = await program.account.exchange.fetch(exchange.publicKey);
+      assert.ok(!exchangeAccount2.ongoing);
+    });*/
+
+    it("process exchange", async() => {
+      const {exchange, seller, itemHolder,itemPublicKey, currencyPubkey} = await createExchange(provider, program, price);
+      await processExchange(provider, program, exchange, seller, itemPublicKey, currencyPubkey);
+      const exchangeAccount = await program.account.exchange.fetch(exchange.publicKey);
+
+      assert.ok(!exchangeAccount.ongoing);
     })
 })
+
+async function processExchange(provider, program, exchange, seller, itemPublicKey, currencyPubkey) {
+  let buyer = new anchor.web3.Account();
+  const feePayerPubkey = provider.wallet.publicKey;
+
+  let from = await createTokenAccountWithBalance(provider, currencyPubkey, buyer.publicKey, 100);
+  let fromAuth = buyer.publicKey;
+  const exchangeAccount = await program.account.exchange.fetch(exchange.publicKey);
+  let [pda] = await anchor.web3.PublicKey.findProgramAddress([exchangeAccount.seller.toBuffer()], program.programId);
+  let itemReceiver = await createTokenAccountWithBalance(provider, itemPublicKey, seller.publicKey, 0);
+  let currencyReceiver = await createTokenAccountWithBalance(provider, currencyPubkey, seller.publicKey, 0);
+  
+
+  await program.rpc.processExchange({
+    accounts: {
+      exchange: exchange.publicKey,
+      seller: seller.publicKey,
+      buyer: buyer.publicKey,
+      from: from,
+      fromAuth: fromAuth,
+      itemHolder: exchangeAccount.itemHolder,
+      itemHolderAuth: pda,
+      itemReceiver: itemReceiver,
+      currencyHolder: exchangeAccount.currencyHolder,
+      currencyHolderAuth: pda,
+      currencyReceiver: currencyReceiver,
+      tokenProgram: TOKEN_PROGRAM_ID,
+    },
+    signers: [buyer, seller],
+  });
+}
+
+async function createTokenAccount(provider, mint, owner) {
+  const vault = new anchor.web3.Account();
+  const tx = new anchor.web3.Transaction();
+  tx.add(...(await createTokenAccountInstrs(provider, vault.publicKey, mint, owner)));
+  await provider.send(tx, [vault]);
+  return vault.publicKey;
+}
 
 async function createExchange(provider, program, price) {
     const feePayerPubkey = provider.wallet.publicKey;
@@ -30,12 +105,15 @@ async function createExchange(provider, program, price) {
     let [pda] = await anchor.web3.PublicKey.findProgramAddress([seller.publicKey.toBuffer()], program.programId);
     let itemPublicKey = await createMint(provider, feePayerPubkey);
     let itemHolderPublicKey = await createTokenAccountWithBalance(provider, itemPublicKey, pda, 1);
+    let currencyPubkey = await createMint(provider, feePayerPubkey);
+    let currencyHolderPubkey = await createTokenAccount(provider, currencyPubkey, pda);
 
     await program.rpc.createExcahnge(price, {
         accounts: {
             exchange: exchange.publicKey,
             seller: seller.publicKey,
             itemHolder: itemHolderPublicKey,
+            currencyHolder: currencyHolderPubkey,
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         },
         signers: [exchange],
@@ -44,8 +122,10 @@ async function createExchange(provider, program, price) {
 
     return {
       exchange: exchange,
-      seller: seller,
+      seller: seller,    
       itemHolder: itemHolderPublicKey,
+      itemPublicKey: itemPublicKey,
+      currencyPubkey: currencyPubkey,
     };
 }
 
