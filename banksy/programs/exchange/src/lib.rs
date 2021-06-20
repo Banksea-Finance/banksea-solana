@@ -19,6 +19,7 @@ mod exchange {
 
     pub fn process_exchange(ctx: Context<ProgressExchange>) -> Result<(), ProgramError> {
         let exchange = &mut ctx.accounts.exchange;
+        exchange.buyer = *ctx.accounts.buyer.key;
 
         // 货币转账
         let (_, seed) = Pubkey::find_program_address(&[&exchange.seller.to_bytes()], &ctx.program_id);
@@ -120,7 +121,7 @@ pub struct ProgressExchange<'info> {
     )]
     item_holder: CpiAccount<'info, TokenAccount>,
     item_holder_auth: AccountInfo<'info>,
-    #[account(mut, "item_receiver.owner == exchange.buyer")]
+    #[account(mut)]
     item_receiver: CpiAccount<'info, TokenAccount>,
     #[account(
         mut,

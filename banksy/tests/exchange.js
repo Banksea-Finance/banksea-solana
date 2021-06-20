@@ -65,7 +65,7 @@ async function processExchange(provider, program, exchange, seller, itemPublicKe
   let fromAuth = buyer.publicKey;
   const exchangeAccount = await program.account.exchange.fetch(exchange.publicKey);
   let [pda] = await anchor.web3.PublicKey.findProgramAddress([exchangeAccount.seller.toBuffer()], program.programId);
-  let itemReceiver = await createTokenAccountWithBalance(provider, itemPublicKey, seller.publicKey, 0);
+  let itemReceiver = await createTokenAccountWithBalance(provider, itemPublicKey, buyer.publicKey, 0);
   let currencyReceiver = await createTokenAccountWithBalance(provider, currencyPubkey, seller.publicKey, 0);
   
 
