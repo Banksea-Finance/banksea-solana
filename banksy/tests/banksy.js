@@ -46,8 +46,8 @@ describe('banksy', () => {
       listener = program.addEventListener("TransferEvent", (event, slot) => {
         resolve([event, slot]);
       });
+	  distTo(program, user1, authority, nft, amount);
     });
-    await distTo(program, user1, authority, nft, amount);
     await program.removeEventListener(listener);
 
     assert.ok(slot > 0);
