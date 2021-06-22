@@ -11,8 +11,6 @@ mod exchange {
         exchange.ongoing = true;
         exchange.seller = *ctx.accounts.seller.key;
         exchange.item_holder = *ctx.accounts.item_holder.to_account_info().key;
-        exchange.currency_holder = *ctx.accounts.currency_holder.to_account_info().key;
-        exchange.buyer = *ctx.accounts.seller.key;
         exchange.price = price;
         Ok(())
     }
@@ -36,18 +34,7 @@ mod exchange {
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         // 完成货币转账
         token::transfer(cpi_ctx, exchange.price)?;
-        /*
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.currency_holder.to_account_info().clone(),
-            to: ctx.accounts.currency_receiver.to_account_info().clone(),
-            authority: ctx.accounts.currency_holder_auth.clone(),
-        };
 
-        let cpi_program = ctx.accounts.token_program.clone();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-        // 完成货币转账
-        token::transfer(cpi_ctx, exchange.price)?;
-        */
         // NFT转账
         let cpi_accounts = Transfer {
             from: ctx.accounts.item_holder.to_account_info().clone(),
@@ -62,27 +49,6 @@ mod exchange {
         Ok(())
     }
 
-    pub fn close_auction(ctx: Context<CloseExchange>) -> Result<(), ProgramError> {
-        let exchange = &mut ctx.accounts.exchange;
-    
-        let (_, seed) =
-            Pubkey::find_program_address(&[&exchange.seller.to_bytes()], &ctx.program_id);
-        let seeds = &[exchange.seller.as_ref(), &[seed]];
-        let signer = &[&seeds[..]];
-    
-        // item ownership transfer
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.item_holder.to_account_info().clone(),
-            to: ctx.accounts.item_receiver.to_account_info().clone(),
-            authority: ctx.accounts.item_holder_auth.clone(),
-        };
-        let cpi_program = ctx.accounts.token_program.clone();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-        token::transfer(cpi_ctx, ctx.accounts.item_holder.amount)?;
-    
-        exchange.ongoing = false;
-        Ok(())
-    }
 }
 
 
@@ -136,41 +102,11 @@ pub struct ProgressExchange<'info> {
     token_program: AccountInfo<'info>,
 }
 
-#[derive(Accounts)]
-pub struct CloseExchange<'info> {
-    #[account(mut, "exchange.ongoing")]
-    exchange: ProgramAccount<'info, Exchange>,
-    #[account(signer)]
-    seller: AccountInfo<'info>,
-    #[account(
-        mut,
-        "item_holder.to_account_info().key == &exchange.item_holder",
-        "&item_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0"
-    )]
-    item_holder: CpiAccount<'info, TokenAccount>,
-    item_holder_auth: AccountInfo<'info>,
-    #[account(mut, "item_receiver.owner == exchange.buyer")]
-    item_receiver: CpiAccount<'info, TokenAccount>,
-    #[account(
-        mut,
-        "currency_holder.to_account_info().key == &exchange.currency_holder",
-        "&currency_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0"
-    )]
-    currency_holder: CpiAccount<'info, TokenAccount>,
-    #[account("&currency_holder.owner == currency_holder_auth.key")]
-    currency_holder_auth: AccountInfo<'info>,
-    #[account(mut)]
-    currency_receiver: CpiAccount<'info, TokenAccount>,
-    #[account("token_program.key == &token::ID")]
-    token_program: AccountInfo<'info>,
-}
-
 #[account]
 pub struct Exchange {
     ongoing: bool,
     seller: Pubkey,
     item_holder: Pubkey,
-    currency_holder: Pubkey,
     buyer:Pubkey,
     price: u64,
 }

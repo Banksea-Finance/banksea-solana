@@ -21,34 +21,6 @@ describe("start exchange", () =>{
         assert.ok(exchangeAccount.itemHolder.equals(itemHolder));
     });
 
-    /*it("close a auction which no one bid", async () => {
-      const {exchange, seller, itemHolder, itemPublicKey, currencyPubkey} = await createExchange(provider, program, price);
-  
-      let itemReceiver = await createTokenAccountWithBalance(provider, itemPublicKey, seller.publicKey, 0);
-      let currencyReceiver = await createTokenAccountWithBalance(provider, currencyPubkey, seller.publicKey, 0);
-  
-      let exchangeAccount = await program.account.exchange.fetch(exchange.publicKey);
-      let [pda] = await anchor.web3.PublicKey.findProgramAddress([exchangeAccount.seller.toBuffer()], program.programId);
-      let currencyHolder = exchangeAccount.currencyHolder;
-      await program.rpc.closeAuction({
-        accounts: {
-          exchange: exchange.publicKey,
-          seller: seller.publicKey,
-          itemHolder: itemHolder,
-          itemHolderAuth: pda,
-          itemReceiver: itemReceiver,
-          currencyHolder: currencyHolder,
-          currencyHolderAuth: pda,
-          currencyReceiver: currencyReceiver,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        },
-        signers: [seller],
-      });
-  
-      exchangeAccount2 = await program.account.exchange.fetch(exchange.publicKey);
-      assert.ok(!exchangeAccount2.ongoing);
-    });*/
-
     it("process exchange", async() => {
       const {exchange, seller, itemHolder,itemPublicKey, currencyPubkey} = await createExchange(provider, program, price);
       const {itemReceiver, currencyReceiver} = await processExchange(provider, program, exchange, seller, itemPublicKey, currencyPubkey);
@@ -83,8 +55,6 @@ async function processExchange(provider, program, exchange, seller, itemPublicKe
       itemHolder: exchangeAccount.itemHolder,
       itemHolderAuth: pda,
       itemReceiver: itemReceiver,
-      /*currencyHolder: exchangeAccount.currencyHolder,
-      currencyHolderAuth: pda,*/
       currencyReceiver: currencyReceiver,
       tokenProgram: TOKEN_PROGRAM_ID,
     },
