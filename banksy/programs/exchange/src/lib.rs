@@ -28,7 +28,7 @@ mod exchange {
 
         let cpi_accounts = Transfer {
             from: ctx.accounts.from.to_account_info().clone(),
-            to: ctx.accounts.currency_holder.to_account_info().clone(),
+            to: ctx.accounts.currency_receiver.to_account_info().clone(),
             authority: ctx.accounts.from_auth.clone(),
         };
 
@@ -36,7 +36,7 @@ mod exchange {
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         // 完成货币转账
         token::transfer(cpi_ctx, exchange.price)?;
-
+        /*
         let cpi_accounts = Transfer {
             from: ctx.accounts.currency_holder.to_account_info().clone(),
             to: ctx.accounts.currency_receiver.to_account_info().clone(),
@@ -47,7 +47,7 @@ mod exchange {
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
         // 完成货币转账
         token::transfer(cpi_ctx, exchange.price)?;
-
+        */
         // NFT转账
         let cpi_accounts = Transfer {
             from: ctx.accounts.item_holder.to_account_info().clone(),
@@ -123,13 +123,13 @@ pub struct ProgressExchange<'info> {
     item_holder_auth: AccountInfo<'info>,
     #[account(mut)]
     item_receiver: CpiAccount<'info, TokenAccount>,
-    #[account(
+    /*#[account(
         mut,
         "currency_holder.to_account_info().key == &exchange.currency_holder"
     )]
     currency_holder: CpiAccount<'info, TokenAccount>,
     #[account("&currency_holder.owner == currency_holder_auth.key")]
-    currency_holder_auth: AccountInfo<'info>,
+    currency_holder_auth: AccountInfo<'info>,*/
     #[account(mut)]
     currency_receiver: CpiAccount<'info, TokenAccount>,
     #[account("token_program.key == &token::ID")]

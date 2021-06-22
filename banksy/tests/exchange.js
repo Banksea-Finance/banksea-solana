@@ -1,6 +1,7 @@
 const anchor = require('@project-serum/anchor');
 const assert = require("assert");
 const TokenInstructions = require("@project-serum/serum").TokenInstructions;
+const serumCommon = require("@project-serum/common");
 const TOKEN_PROGRAM_ID = new anchor.web3.PublicKey(TokenInstructions.TOKEN_PROGRAM_ID.toString());
 
 describe("start exchange", () =>{
@@ -50,10 +51,13 @@ describe("start exchange", () =>{
 
     it("process exchange", async() => {
       const {exchange, seller, itemHolder,itemPublicKey, currencyPubkey} = await createExchange(provider, program, price);
-      await processExchange(provider, program, exchange, seller, itemPublicKey, currencyPubkey);
+      const {itemReceiver, currencyReceiver} = await processExchange(provider, program, exchange, seller, itemPublicKey, currencyPubkey);
       const exchangeAccount = await program.account.exchange.fetch(exchange.publicKey);
 
       assert.ok(!exchangeAccount.ongoing);
+      assert.ok((await serumCommon.getTokenAccount(provider, itemHolder)).amount == 0);
+      assert.ok((await serumCommon.getTokenAccount(provider, itemReceiver)).amount == 1);
+      assert.ok((await serumCommon.getTokenAccount(provider, currencyReceiver)).amount == 10);
     })
 })
 
@@ -79,13 +83,18 @@ async function processExchange(provider, program, exchange, seller, itemPublicKe
       itemHolder: exchangeAccount.itemHolder,
       itemHolderAuth: pda,
       itemReceiver: itemReceiver,
-      currencyHolder: exchangeAccount.currencyHolder,
-      currencyHolderAuth: pda,
+      /*currencyHolder: exchangeAccount.currencyHolder,
+      currencyHolderAuth: pda,*/
       currencyReceiver: currencyReceiver,
       tokenProgram: TOKEN_PROGRAM_ID,
     },
     signers: [buyer, seller],
   });
+
+  return {
+    itemReceiver,
+    currencyReceiver,
+  };
 }
 
 async function createTokenAccount(provider, mint, owner) {
