@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::{AccountDeserialize, AnchorDeserialize};
 use anchor_spl::token::{self, TokenAccount, Transfer};
+use banksy::NftAccount;
 
 #[program]
 mod exchange {
@@ -58,7 +59,7 @@ pub struct CreateExchange<'info> {
     exchange: ProgramAccount<'info, Exchange>,
     seller: AccountInfo<'info>,
     #[account("&item_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0")]
-    item_holder: CpiAccount<'info, TokenAccount>,
+    item_holder: CpiAccount<'info, NftAccount>,
     #[account("&currency_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0")]
     currency_holder: CpiAccount<'info, TokenAccount>,    
     rent: Sysvar<'info, Rent>,
@@ -85,10 +86,10 @@ pub struct ProgressExchange<'info> {
         "item_holder.to_account_info().key == &exchange.item_holder",
         "&item_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0"
     )]
-    item_holder: CpiAccount<'info, TokenAccount>,
+    item_holder: CpiAccount<'info, NftAccount>,
     item_holder_auth: AccountInfo<'info>,
     #[account(mut)]
-    item_receiver: CpiAccount<'info, TokenAccount>,
+    item_receiver: CpiAccount<'info, NftAccount>,
     /*#[account(
         mut,
         "currency_holder.to_account_info().key == &exchange.currency_holder"

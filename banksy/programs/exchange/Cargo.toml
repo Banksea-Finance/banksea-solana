@@ -17,3 +17,4 @@ default = []
 [dependencies]
 anchor-lang = "0.8.0"
 anchor-spl = "0.8.0"
+banksy = { version = "0.1.0", path = "../banksy", features = [ "no-entrypoint" ]}
