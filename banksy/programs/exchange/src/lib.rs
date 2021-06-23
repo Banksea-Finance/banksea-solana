@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::{AccountDeserialize, AnchorDeserialize};
-use anchor_spl::token::{self, TokenAccount, Transfer};
-use banksy::NftAccount;
+use anchor_spl::token::{self, TokenAccount, Transfer as CurrencyTransfer};
+use banksy::{UserAccount, Transfer as NftTransfer};
 
 #[program]
 mod exchange {
@@ -25,7 +25,7 @@ mod exchange {
         let seeds = &[exchange.seller.as_ref(), &[seed]];
         let signer = &[&seeds[..]];
 
-        let cpi_accounts = Transfer {
+        let cpi_accounts = CurrencyTransfer {
             from: ctx.accounts.from.to_account_info().clone(),
             to: ctx.accounts.currency_receiver.to_account_info().clone(),
             authority: ctx.accounts.from_auth.clone(),
@@ -37,14 +37,14 @@ mod exchange {
         token::transfer(cpi_ctx, exchange.price)?;
 
         // NFT转账
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.item_holder.to_account_info().clone(),
-            to: ctx.accounts.item_receiver.to_account_info().clone(),
+        let cpi_accounts = NftTransfer {
+            from: ctx.accounts.item_holder.clone().into(),
+            to: ctx.accounts.item_receiver.clone().into(),
             authority: ctx.accounts.item_holder_auth.clone(),
         };
-        let cpi_program = ctx.accounts.token_program.clone();
+        let cpi_program = ctx.accounts.nft_program.clone();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-        token::transfer(cpi_ctx, ctx.accounts.item_holder.remain)?;
+        banksy::cpi::transfer(cpi_ctx, ctx.accounts.item_holder.amount)?;
         
         exchange.ongoing = false;
         Ok(())
@@ -59,7 +59,7 @@ pub struct CreateExchange<'info> {
     exchange: ProgramAccount<'info, Exchange>,
     seller: AccountInfo<'info>,
     //#[account("&item_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0")]
-    item_holder: CpiAccount<'info, NftAccount>,
+    item_holder: CpiAccount<'info, UserAccount>,
     //#[account("&currency_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0")]
     currency_holder: CpiAccount<'info, TokenAccount>,    
     rent: Sysvar<'info, Rent>,
@@ -76,7 +76,7 @@ pub struct ProgressExchange<'info> {
     #[account(
         mut,
         "from.mint == currency_receiver.mint",
-        //"&from.owner == from_auth.key",
+        "&from.owner == from_auth.key",
     )]
     from: CpiAccount<'info, TokenAccount>,
     #[account(signer)]
@@ -86,10 +86,10 @@ pub struct ProgressExchange<'info> {
         "item_holder.to_account_info().key == &exchange.item_holder",
         //"&item_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0"
     )]
-    item_holder: CpiAccount<'info, NftAccount>,
+    item_holder: CpiAccount<'info, UserAccount>,
     item_holder_auth: AccountInfo<'info>,
     #[account(mut)]
-    item_receiver: CpiAccount<'info, NftAccount>,
+    item_receiver: CpiAccount<'info, UserAccount>,
     /*#[account(
         mut,
         "currency_holder.to_account_info().key == &exchange.currency_holder"
@@ -101,6 +101,8 @@ pub struct ProgressExchange<'info> {
     currency_receiver: CpiAccount<'info, TokenAccount>,
     #[account("token_program.key == &token::ID")]
     token_program: AccountInfo<'info>,
+    //#[account("nft_program.key == &banksy::ID")]
+    nft_program: AccountInfo<'info>,
 }
 
 #[account]
