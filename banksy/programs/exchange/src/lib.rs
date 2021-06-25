@@ -69,7 +69,6 @@ pub struct CreateExchange<'info> {
 pub struct ProgressExchange<'info> {
     #[account(mut, "exchange.ongoing")]
     exchange: ProgramAccount<'info, Exchange>,
-    #[account(signer)]
     seller: AccountInfo<'info>,
     #[account(signer)]
     buyer: AccountInfo<'info>,

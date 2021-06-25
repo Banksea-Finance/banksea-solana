@@ -47,7 +47,7 @@ async function processExchange(provider, program, nftProgram, exchange, seller, 
   const exchangeAccount = await program.account.exchange.fetch(exchange.publicKey);
   let [pda] = await anchor.web3.PublicKey.findProgramAddress([exchangeAccount.seller.toBuffer()], program.programId);
   const nftAuth = nftProgram.provider.wallet.publicKey;
-  let itemReceiver = await createUser(nftProgram, nftAuth, itemPublicKey);
+  let itemReceiver = await findUserAccount(nftProgram, buyer.publicKey, itemPublicKey);
   //let itemReceiver = await createTokenAccountWithBalance(provider, itemPublicKey, buyer.publicKey, 0);
 
   let currencyReceiver = await createTokenAccountWithBalance(provider, currencyPubkey, seller.publicKey, 0);
@@ -61,13 +61,13 @@ async function processExchange(provider, program, nftProgram, exchange, seller, 
       from: from,
       fromAuth: fromAuth,
       itemHolder: exchangeAccount.itemHolder,
-      itemHolderAuth: nftAuth,
+      itemHolderAuth: pda,
       itemReceiver: itemReceiver,
       currencyReceiver: currencyReceiver,
       tokenProgram: TOKEN_PROGRAM_ID,
       nftProgram: nftProgram.programId,
     },
-    signers: [buyer, seller],
+    signers: [buyer],
   });
 
   return {
@@ -86,7 +86,6 @@ async function createTokenAccount(provider, mint, owner) {
 
 async function createExchange(provider, program, nftProgram, price) {
     const feePayerPubkey = provider.wallet.publicKey;
-    const nftAuth = nftProgram.provider.wallet.publicKey;
     const uri = "ipfs://ipfs/QmVLAo3EQvkkQKjLTt1dawYsehSEnwYBi19vzh85pohpuw";
     const supply = new anchor.BN(100);
 
@@ -95,10 +94,13 @@ async function createExchange(provider, program, nftProgram, price) {
     let [pda] = await anchor.web3.PublicKey.findProgramAddress([seller.publicKey.toBuffer()], program.programId);
     //let itemPublicKey = await createMint(provider, feePayerPubkey);
     //let itemHolderPublicKey = await createTokenAccountWithBalance(provider, itemPublicKey, pda, 1);
-    let itemPublicKey = await createNft(nftProgram, nftAuth, uri, supply);
-    let itemHolderPublicKey = await createUser(nftProgram, nftAuth, itemPublicKey);
+    let itemPublicKey = await createNftAccount(nftProgram, uri, supply, seller);
+    let itemHolderPublicKey = await findUserAccount(nftProgram, pda, itemPublicKey);
+    
+
     let amount = new anchor.BN(10);
-    await distTo(nftProgram, itemHolderPublicKey, nftAuth, itemPublicKey, amount);
+    await distTo(nftProgram, pda, itemPublicKey, amount, seller);
+    
     let currencyPubkey = await createMint(provider, feePayerPubkey);
     let currencyHolderPubkey = await createTokenAccount(provider, currencyPubkey, pda);
 
@@ -123,24 +125,26 @@ async function createExchange(provider, program, nftProgram, price) {
     };
 }
 
-async function createUser(nftProgram, authority, nft) {
-  const userKey = anchor.web3.Keypair.generate();
-  await nftProgram.rpc.createUser({
-    accounts: {
-      nft: nft,
-      user: userKey.publicKey,
-      authority: authority,
-      systemProgram: anchor.web3.SystemProgram.programId,
-      rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-    },
-    signers: [userKey],
-    instructions: [await nftProgram.account.userAccount.createInstruction(userKey)],
-  });
+async function findUserAccount(program, userPublicKey, nftAccount) {
+  // create a user account
+  const associatedToken = await program.account.userAccount.associatedAddress(userPublicKey, nftAccount);
+  const accountInfo = await program.provider.connection.getAccountInfo(associatedToken);
 
-  return userKey.publicKey;
+  if(accountInfo == null) {
+    await program.rpc.createUser({
+      accounts: {
+        nft: nftAccount,
+        payer: program.provider.wallet.publicKey,
+        user: associatedToken,
+        authority: userPublicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+    });
+  }
 
+  return associatedToken;
 }
-
 async function createTokenAccountWithBalance(provider, mintPubkey, owner, initBalance) {
     const tx = new anchor.web3.Transaction();
     const newAccountPubkey = new anchor.web3.Account();
@@ -205,18 +209,17 @@ async function createMintInstructions(provider, authority, mint) {
     return instructions;
   }
 
-  async function createNft(program, authority, uri, supply) {
+  async function createNftAccount(program, uri, supply, userKey) {
     const nftKey = anchor.web3.Keypair.generate();
-  
     // create a nft to a account
     await program.rpc.createNft(str2Bytes(uri), supply, {
       accounts: {
         nft: nftKey.publicKey,
-        authority: authority,
+        authority: userKey.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       },
-      signers: [nftKey],
+      signers: [nftKey, userKey],
       instructions: [await program.account.nftAccount.createInstruction(nftKey)],
     });
   
@@ -224,14 +227,16 @@ async function createMintInstructions(provider, authority, mint) {
   }
 
 
-  async function distTo(program, user, authority, nft, amount) {
-
+  async function distTo(program, userPublickey, nftAccount, amount, authority) {
+    const userAccount = await findUserAccount(program, userPublickey, nftAccount);
+    
     await program.rpc.distTo(amount, {
       accounts: {
-        nft: nft,
-        user: user,
-        authority: authority,
+        nft: nftAccount,
+        user: userAccount,
+        authority: authority.publicKey,
       },
+      signers:[authority]
     });
   
   }
