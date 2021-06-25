@@ -7,11 +7,12 @@ pub mod banksy {
         ctx.accounts.nft.supply = supply;
         ctx.accounts.nft.uri = uri;
         ctx.accounts.nft.remain = supply;
-        /* emit!(CreateNftEvent{
+        ctx.accounts.nft.authority = *ctx.accounts.authority.key;
+        emit!(CreateNftEvent{
             nft: *ctx.accounts.nft.to_account_info().key, 
             uri: uri, 
             supply: supply,
-        }); */
+        }); 
         Ok(())
     }
 
@@ -34,7 +35,6 @@ pub mod banksy {
         });
         Ok(())
     }
-
 
     pub fn transfer(ctx: Context<Transfer>, amount: u64) -> ProgramResult {
         let authority = *ctx.accounts.authority.key;
@@ -81,20 +81,22 @@ pub struct CreateNft<'info> {
 pub struct DistTo<'info> {
     #[account(signer)]
     pub authority: AccountInfo<'info>,
-    #[account(mut)]
+    #[account(mut, has_one = authority)]
     pub nft: ProgramAccount<'info, NftAccount>,
-    #[account(mut, has_one = authority, has_one = nft)]
+    #[account(mut, has_one = nft)]
     pub user: ProgramAccount<'info, UserAccount>,
+    
 }
 
 
 #[derive(Accounts)]
 pub struct CreateUser<'info> {
-    #[account(init)]
+    #[account(init, associated = authority, with = nft, payer = payer)]
     pub user: ProgramAccount<'info, UserAccount>,
     pub nft: ProgramAccount<'info, NftAccount>,
-    #[account(signer)]
     pub authority: AccountInfo<'info>,
+    #[account(signer)]
+    pub payer: AccountInfo<'info>,
     pub rent: Sysvar<'info, Rent>,
     pub system_program: AccountInfo<'info>,
 }
@@ -123,9 +125,11 @@ pub struct NftAccount {
     pub supply: u64,
     pub remain: u64,
     pub uri: [u8; 128],
+    pub authority: Pubkey,
 }
 
-#[account]
+#[associated]
+#[derive(Default)]
 pub struct UserAccount {
     pub authority: Pubkey,
     pub nft: Pubkey,
