@@ -13,7 +13,6 @@ describe('banksy', () => {
   let user2Wallet = anchor.web3.Keypair.generate();;
 
   it('Create a nft', async () => {
-    anchor.setProvider(anchor.Provider.env());
     const uri = "ipfs://ipfs/QmVLAo3EQvkkQKjLTt1dawYsehSEnwYBi19vzh85pohpuw";
     const supply = new anchor.BN(100);
 
@@ -22,55 +21,30 @@ describe('banksy', () => {
     const nftAccountInfo = await getNftAccountInfo(program, nftAccount);
 
     assert.ok(nftAccountInfo.supply.toNumber() === supply.toNumber());
-    assert.ok(nftAccountInfo.remain.toNumber() === supply.toNumber());
     assert.ok(bytes2Str(nftAccountInfo.uri) === uri);
 
+
+
+    const user1Account = await findUserAccount(program, user1Wallet.publicKey, nftAccount);
+    const user1AccountInfo = await getUserAccountInfo(program, user1Account);
+
+    assert.ok(user1AccountInfo.amount.toNumber() === supply.toNumber());
+    assert.ok(user1AccountInfo.authority.equals(user1Wallet.publicKey));
+    assert.ok(user1AccountInfo.nft.equals(nftAccount));
   });
 
-  it('create a account', async () => {
+  /*it('create a account', async () => {
     const user1Account = await findUserAccount(program, user1Wallet.publicKey, nftAccount);
 
     const user1AccountInfo = await getUserAccountInfo(program, user1Account);
     assert.ok(user1AccountInfo.amount.toNumber() === 0);
     assert.ok(user1AccountInfo.authority.equals(user1Wallet.publicKey));
     assert.ok(user1AccountInfo.nft.equals(nftAccount));
-  });
+  });*/
 
-
-
-  it('dist to', async () => {
-    const amount = new anchor.BN(100);
-    let listener = null;
-
-    let [event, slot] = await new Promise((resolve, _reject) => {
-      listener = program.addEventListener("TransferEvent", (event, slot) => {
-        resolve([event, slot]);
-      });
-      distTo(program, user1Wallet.publicKey, nftAccount, amount, user1Wallet);
-    });
-    await program.removeEventListener(listener);
-
-    const user1Account = await findUserAccount(program, user1Wallet.publicKey, nftAccount);
-
-    assert.ok(slot > 0);
-    assert.ok(event.nft.equals(nftAccount));
-    assert.ok(event.from.equals(ZERO_PUB));
-    assert.ok(event.to.equals(user1Account));
-    assert.ok(event.amount.toNumber() === amount.toNumber());
-    
-    const user1AccountInfo = await getUserAccountInfo(program, user1Account);
-
-    assert.ok(user1AccountInfo.amount.toNumber() === amount.toNumber());
-    assert.ok(user1AccountInfo.authority.equals(user1Wallet.publicKey));
-    assert.ok(user1AccountInfo.nft.equals(nftAccount));
-    
-    const nftAccountInfo = await getNftAccountInfo(program, nftAccount);
-    assert.ok(nftAccountInfo.remain.toNumber() === 0);
-  });
 
   it('transfer', async () => {
     const amount = new anchor.BN(10);
-
     
     let [event, slot] = await new Promise((resolve, _reject) => {
       listener = program.addEventListener("TransferEvent", (event, slot) => {
@@ -88,6 +62,9 @@ describe('banksy', () => {
     assert.ok(event.nft.equals(nftAccount));
     assert.ok(event.from.equals(user1Account));
     assert.ok(event.to.equals(user2Account));
+
+    assert.ok(event.fromAuthority.equals(user1Wallet.publicKey));
+    assert.ok(event.toAuthority.equals(user2Wallet.publicKey));
     assert.ok(event.amount.toNumber() === amount.toNumber());
 
     const user1AccountInfo = await getUserAccountInfo(program, user1Account);
@@ -107,11 +84,14 @@ describe('banksy', () => {
 
 async function createNftAccount(program, uri, supply, userKey) {
   const nftKey = anchor.web3.Keypair.generate();
+  const userAccount = await program.account.userAccount.associatedAddress(userKey.publicKey, nftKey.publicKey);
   // create a nft to a account
   await program.rpc.createNft(str2Bytes(uri), supply, {
     accounts: {
       nft: nftKey.publicKey,
       authority: userKey.publicKey,
+      user: userAccount,
+      payer: program.provider.wallet.publicKey,
       systemProgram: anchor.web3.SystemProgram.programId,
       rent: anchor.web3.SYSVAR_RENT_PUBKEY,
     },
@@ -144,19 +124,6 @@ async function findUserAccount(program, userPublicKey, nftAccount) {
   return associatedToken;
 }
 
-async function distTo(program, userPublicKey, nftAccount, amount, authority) {
-  const userAccount = await findUserAccount(program, userPublicKey, nftAccount);
-  
-  await program.rpc.distTo(amount, {
-    accounts: {
-      nft: nftAccount,
-      user: userAccount,
-      authority: authority.publicKey,
-    },
-    signers:[authority]
-  });
-
-}
 
 async function transfer(program, nftAccount, user1Wallet, user2Wallet, amount) {
   const user1Account = await findUserAccount(program, user1Wallet.publicKey, nftAccount);
