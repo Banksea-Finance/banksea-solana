@@ -99,7 +99,7 @@ async function createExchange(provider, program, nftProgram, price) {
     
 
     let amount = new anchor.BN(10);
-    await distTo(nftProgram, pda, itemPublicKey, amount, seller);
+    await transfer(nftProgram, itemPublicKey, seller, pda, amount);
     
     let currencyPubkey = await createMint(provider, feePayerPubkey);
     let currencyHolderPubkey = await createTokenAccount(provider, currencyPubkey, pda);
@@ -211,32 +211,34 @@ async function createMintInstructions(provider, authority, mint) {
 
   async function createNftAccount(program, uri, supply, userKey) {
     const nftKey = anchor.web3.Keypair.generate();
+    const userAccount = await program.account.userAccount.associatedAddress(userKey.publicKey, nftKey.publicKey);
     // create a nft to a account
     await program.rpc.createNft(str2Bytes(uri), supply, {
       accounts: {
         nft: nftKey.publicKey,
         authority: userKey.publicKey,
+        user: userAccount,
+        payer: program.provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       },
       signers: [nftKey, userKey],
       instructions: [await program.account.nftAccount.createInstruction(nftKey)],
     });
-  
+
     return nftKey.publicKey;
   }
 
-
-  async function distTo(program, userPublickey, nftAccount, amount, authority) {
-    const userAccount = await findUserAccount(program, userPublickey, nftAccount);
-    
-    await program.rpc.distTo(amount, {
+  async function transfer(program, nftAccount, user1Wallet, user2PublicKey, amount) {
+    const user1Account = await findUserAccount(program, user1Wallet.publicKey, nftAccount);
+    const user2Account = await findUserAccount(program, user2PublicKey, nftAccount);
+    await program.rpc.transfer(amount, {
       accounts: {
-        nft: nftAccount,
-        user: userAccount,
-        authority: authority.publicKey,
+        from: user1Account,
+        to: user2Account,
+        authority: user1Wallet.publicKey,
       },
-      signers:[authority]
+      signers: [user1Wallet]
     });
   
   }
