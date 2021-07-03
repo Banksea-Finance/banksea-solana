@@ -1,13 +1,14 @@
 use anchor_lang::prelude::*;
-
 #[program]
 pub mod banksy {
     use super::*;
-    pub fn create_nft(ctx: Context<CreateNft>, uri: [u8; 128], supply: u64) -> ProgramResult {
-        ctx.accounts.nft.supply = supply;
-        ctx.accounts.nft.uri = uri;
-        ctx.accounts.nft.authority = *ctx.accounts.authority.key;
 
+    pub fn create_nft(ctx: Context<CreateNft>, uri: String , supply: u64) -> ProgramResult {
+
+        ctx.accounts.nft.supply = supply;
+        ctx.accounts.nft.uri = uri.clone();
+        ctx.accounts.nft.authority = *ctx.accounts.authority.key;
+        
         ctx.accounts.user.authority = *ctx.accounts.authority.key;
         ctx.accounts.user.nft = *ctx.accounts.nft.to_account_info().key;
         ctx.accounts.user.amount = supply;
@@ -120,7 +121,7 @@ pub struct Approval<'info> {
 #[account]
 pub struct NftAccount {
     pub supply: u64,
-    pub uri: [u8; 128],
+    pub uri: String,
     pub authority: Pubkey,
 }
 
@@ -147,7 +148,7 @@ pub struct TransferEvent {
 #[event]
 pub struct CreateNftEvent {
     pub nft: Pubkey,
-    pub uri: [u8; 128],
+    pub uri: String,
     pub supply: u64,
 }
 

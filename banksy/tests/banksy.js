@@ -9,8 +9,8 @@ describe('banksy', () => {
 
   const ZERO_PUB = new anchor.web3.PublicKey(0);
   let nftAccount = null;
-  let user1Wallet = anchor.web3.Keypair.generate();;
-  let user2Wallet = anchor.web3.Keypair.generate();;
+  let user1Wallet = anchor.web3.Keypair.generate();
+  let user2Wallet = anchor.web3.Keypair.generate();
 
   it('Create a nft', async () => {
     const uri = "ipfs://ipfs/QmVLAo3EQvkkQKjLTt1dawYsehSEnwYBi19vzh85pohpuw";
@@ -21,7 +21,7 @@ describe('banksy', () => {
     const nftAccountInfo = await getNftAccountInfo(program, nftAccount);
 
     assert.ok(nftAccountInfo.supply.toNumber() === supply.toNumber());
-    assert.ok(bytes2Str(nftAccountInfo.uri) === uri);
+    assert.ok(nftAccountInfo.uri === uri);
 
 
 
@@ -86,7 +86,8 @@ async function createNftAccount(program, uri, supply, userKey) {
   const nftKey = anchor.web3.Keypair.generate();
   const userAccount = await program.account.userAccount.associatedAddress(userKey.publicKey, nftKey.publicKey);
   // create a nft to a account
-  await program.rpc.createNft(str2Bytes(uri), supply, {
+
+  await program.rpc.createNft(uri, supply, {
     accounts: {
       nft: nftKey.publicKey,
       authority: userKey.publicKey,
@@ -96,9 +97,9 @@ async function createNftAccount(program, uri, supply, userKey) {
       rent: anchor.web3.SYSVAR_RENT_PUBKEY,
     },
     signers: [nftKey, userKey],
-    instructions: [await program.account.nftAccount.createInstruction(nftKey)],
+    instructions: [await program.account.nftAccount.createInstruction(nftKey, 256)],
   });
-
+  
   return nftKey.publicKey;
 }
 

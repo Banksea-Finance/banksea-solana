@@ -213,7 +213,7 @@ async function createMintInstructions(provider, authority, mint) {
     const nftKey = anchor.web3.Keypair.generate();
     const userAccount = await program.account.userAccount.associatedAddress(userKey.publicKey, nftKey.publicKey);
     // create a nft to a account
-    await program.rpc.createNft(str2Bytes(uri), supply, {
+    await program.rpc.createNft(uri, supply, {
       accounts: {
         nft: nftKey.publicKey,
         authority: userKey.publicKey,
@@ -223,7 +223,7 @@ async function createMintInstructions(provider, authority, mint) {
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       },
       signers: [nftKey, userKey],
-      instructions: [await program.account.nftAccount.createInstruction(nftKey)],
+      instructions: [await program.account.nftAccount.createInstruction(nftKey, 256)],
     });
 
     return nftKey.publicKey;
