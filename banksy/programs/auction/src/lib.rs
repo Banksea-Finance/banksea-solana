@@ -58,6 +58,36 @@ pub mod auction {
 
         Ok(())
     }
+
+    pub fn close_auction(ctx: Context<CloseAuction>) -> ProgramResult {
+        
+        let auction = &mut ctx.accounts.auction;
+        let (_, seed) = Pubkey::find_program_address(&[&auction.seller.to_bytes()], &ctx.program_id);
+        let seeds = &[auction.seller.as_ref(), &[seed]];
+        let signer = &[&seeds[..]];
+
+        let cpi_accounts = MoneyTransfer {
+            from: ctx.accounts.money_holder.to_account_info().clone(),
+            to: ctx.accounts.money_receiver.to_account_info().clone(),
+            authority: ctx.accounts.money_holder_auth.clone(),
+        };
+        let cpi_program = ctx.accounts.money_program.clone();
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+        token::transfer(cpi_ctx, auction.price)?;
+
+        let cpi_accounts = NftTransfer {
+            from: ctx.accounts.nft_holder.clone().into(),
+            to: ctx.accounts.nft_receiver.clone().into(),
+            authority: ctx.accounts.nft_holder_auth.clone(),
+        };
+        let cpi_program = ctx.accounts.nft_program.clone();
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+        banksy::cpi::transfer(cpi_ctx, ctx.accounts.nft_holder.amount)?;
+
+        auction.ongoing = false;
+
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -71,9 +101,11 @@ pub struct CreateAuction<'info> {
 
 #[derive(Accounts)]
 pub struct Bid<'info> {
+    #[account(mut, "auction.ongoing")]
     auction: ProgramAccount<'info, Auction>,
     #[account(signer)]
     bider: AccountInfo<'info>,
+    #[account(mut)]
     from: CpiAccount<'info, TokenAccount>,
     #[account(signer)]
     from_auth: AccountInfo<'info>,
@@ -81,6 +113,20 @@ pub struct Bid<'info> {
     money_holder_auth: AccountInfo<'info>,
     ori_money_refund: AccountInfo<'info>,   //
     money_program: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct CloseAuction<'info> {
+    #[account(mut, "auction.ongoing")]
+    auction: ProgramAccount<'info, Auction>,
+    money_holder: CpiAccount<'info, TokenAccount>,
+    money_holder_auth: AccountInfo<'info>,
+    money_receiver: CpiAccount<'info, TokenAccount>,
+    nft_holder: CpiAccount<'info, UserAccount>,
+    nft_holder_auth: AccountInfo<'info>,
+    nft_receiver: CpiAccount<'info, UserAccount>,
+    money_program: AccountInfo<'info>,
+    nft_program: AccountInfo<'info>,
 }
 
 #[account]
