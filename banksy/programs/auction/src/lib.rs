@@ -66,14 +66,17 @@ pub mod auction {
         let seeds = &[auction.seller.as_ref(), &[seed]];
         let signer = &[&seeds[..]];
 
-        let cpi_accounts = MoneyTransfer {
-            from: ctx.accounts.money_holder.to_account_info().clone(),
-            to: ctx.accounts.money_receiver.to_account_info().clone(),
-            authority: ctx.accounts.money_holder_auth.clone(),
-        };
-        let cpi_program = ctx.accounts.money_program.clone();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-        token::transfer(cpi_ctx, auction.price)?;
+        // anyone has bid 
+        if auction.no_bid == false {
+            let cpi_accounts = MoneyTransfer {
+                from: ctx.accounts.money_holder.to_account_info().clone(),
+                to: ctx.accounts.money_receiver.to_account_info().clone(),
+                authority: ctx.accounts.money_holder_auth.clone(),
+            };
+            let cpi_program = ctx.accounts.money_program.clone();
+            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+            token::transfer(cpi_ctx, auction.price)?;
+        }        
 
         let cpi_accounts = NftTransfer {
             from: ctx.accounts.nft_holder.clone().into(),
