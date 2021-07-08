@@ -99,12 +99,12 @@ async function createExchange(provider, program, nftProgram, price) {
     
 
     let amount = new anchor.BN(10);
-    await transfer(nftProgram, itemPublicKey, seller, pda, amount);
+    await transferNft(nftProgram, itemPublicKey, seller, pda, amount);
     
     let currencyPubkey = await createMint(provider, feePayerPubkey);
     let currencyHolderPubkey = await createTokenAccount(provider, currencyPubkey, pda);
 
-    await program.rpc.createExcahnge(price, {
+    await program.rpc.createExchange(price, {
         accounts: {
             exchange: exchange.publicKey,
             seller: seller.publicKey,
@@ -229,7 +229,7 @@ async function createMintInstructions(provider, authority, mint) {
     return nftKey.publicKey;
   }
 
-  async function transfer(program, nftAccount, user1Wallet, user2PublicKey, amount) {
+  async function transferNft(program, nftAccount, user1Wallet, user2PublicKey, amount) {
     const user1Account = await findUserAccount(program, user1Wallet.publicKey, nftAccount);
     const user2Account = await findUserAccount(program, user2PublicKey, nftAccount);
     await program.rpc.transfer(amount, {

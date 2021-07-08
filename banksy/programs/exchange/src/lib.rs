@@ -7,7 +7,7 @@ use banksy::{UserAccount, Transfer as NftTransfer};
 mod exchange {
     use super::*;
 
-    pub fn create_excahnge(ctx: Context<CreateExchange>, price: u64) -> Result<(), ProgramError> {
+    pub fn create_exchange(ctx: Context<CreateExchange>, price: u64) -> Result<(), ProgramError> {
         let exchange = &mut ctx.accounts.exchange;
         exchange.ongoing = true;
         exchange.seller = *ctx.accounts.seller.key;
