@@ -7,7 +7,6 @@ describe('banksy', () => {
   // Program for the tests.
   const program = anchor.workspace.Banksy;
 
-  const ZERO_PUB = new anchor.web3.PublicKey(0);
   let nftAccount = null;
   let user1Wallet = anchor.web3.Keypair.generate();
   let user2Wallet = anchor.web3.Keypair.generate();
@@ -146,21 +145,4 @@ async function getNftAccountInfo(program, nftAccount) {
 
 async function getUserAccountInfo(program, userAccount) {
   return await program.account.userAccount.fetch(userAccount);
-}
-
-function str2Bytes(str) {
-  var bytes = new Array(128).fill(0);
-  for (let index = 0; index < str.length; index++) {
-    bytes[index] = str.charCodeAt(index);
-    
-  }
-  return bytes;
-}
-
-function bytes2Str(bytes) {
-  var str = new String();
-  for (let index = 0; index < bytes.length && bytes[index] != 0; index++) {
-    str += String.fromCharCode(bytes[index]);
-  }
-  return str;
 }
