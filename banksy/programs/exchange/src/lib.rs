@@ -11,7 +11,10 @@ mod exchange {
         let exchange = &mut ctx.accounts.exchange;
         exchange.ongoing = true;
         exchange.seller = *ctx.accounts.seller.key;
+        exchange.item = *ctx.accounts.item.key;
+        exchange.currency = *ctx.accounts.currency.key;
         exchange.item_holder = *ctx.accounts.item_holder.to_account_info().key;
+        exchange.currency_receiver = *ctx.accounts.currency_receiver.to_account_info().key;
         exchange.price = price;
         Ok(())
     }
@@ -20,15 +23,15 @@ mod exchange {
         let exchange = &mut ctx.accounts.exchange;
         exchange.buyer = *ctx.accounts.buyer.key;
 
-        // 货币转账
-        let (_, seed) = Pubkey::find_program_address(&[&exchange.seller.to_bytes()], &ctx.program_id);
-        let seeds = &[exchange.seller.as_ref(), &[seed]];
+        let (_, seed) = Pubkey::find_program_address(&[&exchange.item.to_bytes(), &exchange.seller.to_bytes()], &ctx.program_id);
+        let seeds = &[&exchange.item.as_ref(), exchange.seller.as_ref(), &[seed]];
         let signer = &[&seeds[..]];
 
+        // 货币转账
         let cpi_accounts = CurrencyTransfer {
-            from: ctx.accounts.from.to_account_info().clone(),
+            from: ctx.accounts.currency_holder.to_account_info().clone(),
             to: ctx.accounts.currency_receiver.to_account_info().clone(),
-            authority: ctx.accounts.from_auth.clone(),
+            authority: ctx.accounts.currency_holder_auth.clone(),
         };
 
         let cpi_program = ctx.accounts.token_program.clone();
@@ -57,11 +60,14 @@ mod exchange {
 pub struct CreateExchange<'info> {
     #[account(init)]
     exchange: ProgramAccount<'info, Exchange>,
+    #[account(signer)]
     seller: AccountInfo<'info>,
-    //#[account("&item_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0")]
+    currency: AccountInfo<'info>,
+    item: AccountInfo<'info>,
+    #[account("&item_holder.authority == &Pubkey::find_program_address(&[&item.key.to_bytes(), &seller.key.to_bytes()], &program_id).0")]
     item_holder: CpiAccount<'info, UserAccount>,
-    //#[account("&currency_holder.owner == &Pubkey::find_program_address(&[&seller.key.to_bytes()], &program_id).0")]
-    currency_holder: CpiAccount<'info, TokenAccount>,    
+    #[account("&currency_receiver.owner == seller.key")]
+    currency_receiver: CpiAccount<'info, TokenAccount>,    
     rent: Sysvar<'info, Rent>,
 }
 
@@ -74,12 +80,12 @@ pub struct ProgressExchange<'info> {
     buyer: AccountInfo<'info>,
     #[account(
         mut,
-        "from.mint == currency_receiver.mint",
-        "&from.owner == from_auth.key",
+        "currency_holder.mint == currency_receiver.mint",
+        "&currency_holder.owner == currency_holder_auth.key",
     )]
-    from: CpiAccount<'info, TokenAccount>,
+    currency_holder: CpiAccount<'info, TokenAccount>,
     #[account(signer)]
-    from_auth: AccountInfo<'info>,
+    currency_holder_auth: AccountInfo<'info>,
     #[account(
         mut,
         "item_holder.to_account_info().key == &exchange.item_holder",
@@ -96,7 +102,7 @@ pub struct ProgressExchange<'info> {
     currency_holder: CpiAccount<'info, TokenAccount>,
     #[account("&currency_holder.owner == currency_holder_auth.key")]
     currency_holder_auth: AccountInfo<'info>,*/
-    #[account(mut)]
+    #[account(mut, "currency_receiver.to_account_info().key == &exchange.currency_receiver")]
     currency_receiver: CpiAccount<'info, TokenAccount>,
     #[account("token_program.key == &token::ID")]
     token_program: AccountInfo<'info>,
@@ -108,7 +114,10 @@ pub struct ProgressExchange<'info> {
 pub struct Exchange {
     ongoing: bool,
     seller: Pubkey,
+    buyer: Pubkey,
+    currency: Pubkey,
+    item: Pubkey,
     item_holder: Pubkey,
-    buyer:Pubkey,
+    currency_receiver: Pubkey,
     price: u64,
 }
