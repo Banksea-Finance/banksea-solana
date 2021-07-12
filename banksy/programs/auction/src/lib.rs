@@ -108,13 +108,20 @@ pub struct Bid<'info> {
     auction: ProgramAccount<'info, Auction>,
     #[account(signer)]
     bider: AccountInfo<'info>,
-    #[account(mut)]
+    #[account(
+        mut
+    )]
     from: CpiAccount<'info, TokenAccount>,
     #[account(signer)]
     from_auth: AccountInfo<'info>,
+    #[account(
+        mut,
+    )]
     money_holder: CpiAccount<'info, TokenAccount>,
+    #[account("&money_holder.owner == money_holder_auth.key")]
     money_holder_auth: AccountInfo<'info>,
-    ori_money_refund: AccountInfo<'info>,   //
+    ori_money_refund: AccountInfo<'info>,   
+    #[account("money_program.key == &token::ID")]
     money_program: AccountInfo<'info>,
 }
 
