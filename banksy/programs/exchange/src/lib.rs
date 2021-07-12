@@ -27,7 +27,7 @@ mod exchange {
         let seeds = &[&exchange.item.as_ref(), exchange.seller.as_ref(), &[seed]];
         let signer = &[&seeds[..]];
 
-        // 货币转账
+        // nft transfer
         let cpi_accounts = CurrencyTransfer {
             from: ctx.accounts.currency_holder.to_account_info().clone(),
             to: ctx.accounts.currency_receiver.to_account_info().clone(),
@@ -36,10 +36,10 @@ mod exchange {
 
         let cpi_program = ctx.accounts.token_program.clone();
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        // 完成货币转账
+
         token::transfer(cpi_ctx, exchange.price)?;
 
-        // NFT转账
+        // NFT transfer
         let cpi_accounts = NftTransfer {
             from: ctx.accounts.item_holder.clone().into(),
             to: ctx.accounts.item_receiver.clone().into(),
@@ -52,7 +52,26 @@ mod exchange {
         exchange.ongoing = false;
         Ok(())
     }
+    
+    pub fn close_exchange(ctx: Context<CloseExchange>) -> Result<(), ProgramError> {
+        let exchange = &mut ctx.accounts.exchange;
+        let (_, seed) = Pubkey::find_program_address(&[&exchange.item.to_bytes(), &exchange.seller.to_bytes()], &ctx.program_id);
+        let seeds = &[&exchange.item.as_ref(), exchange.seller.as_ref(), &[seed]];
+        let signer = &[&seeds[..]];
 
+        // NFT transfer
+        let cpi_accounts = NftTransfer {
+            from: ctx.accounts.item_holder.clone().into(),
+            to: ctx.accounts.item_receiver.clone().into(),
+            authority: ctx.accounts.item_holder_auth.clone(),
+        };
+        let cpi_program = ctx.accounts.nft_program.clone();
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
+        banksy::cpi::transfer(cpi_ctx, ctx.accounts.item_holder.amount)?;
+        
+        exchange.ongoing = false;
+        Ok(())
+    }
 }
 
 
@@ -70,6 +89,7 @@ pub struct CreateExchange<'info> {
     currency_receiver: CpiAccount<'info, TokenAccount>,    
     rent: Sysvar<'info, Rent>,
 }
+
 
 #[derive(Accounts)]
 pub struct ProgressExchange<'info> {
@@ -109,6 +129,24 @@ pub struct ProgressExchange<'info> {
     //#[account("nft_program.key == &banksy::ID")]
     nft_program: AccountInfo<'info>,
 }
+
+#[derive(Accounts)]
+pub struct CloseExchange<'info> {
+    #[account(mut, "exchange.ongoing", "&exchange.seller == seller.key")]
+    exchange: ProgramAccount<'info, Exchange>,
+    #[account(signer)]
+    seller: AccountInfo<'info>,
+    #[account(
+        mut,
+        "item_holder.to_account_info().key == &exchange.item_holder",
+    )]
+    item_holder: CpiAccount<'info, UserAccount>,
+    item_holder_auth: AccountInfo<'info>,
+    #[account(mut)]
+    item_receiver: CpiAccount<'info, UserAccount>,
+    nft_program: AccountInfo<'info>,
+}
+
 
 #[account]
 pub struct Exchange {
