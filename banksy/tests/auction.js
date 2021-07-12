@@ -25,10 +25,54 @@ describe("start Auction", () =>{
         const auctionNftHolder = await nftProgram.account.userAccount.fetch(auctionAccount.nftHolder);
         assert.ok(auctionNftHolder.amount == 10);
         assert.ok(auctionAccount.price == 10);
+    });  
+    
+    it("bid once", async() => {
+      const bidPrice = new anchor.BN(11);
+      const {auction, seller, nftHolder} = await createAuction(auctionProgram, nftProgram, price);
+      const {biderMoneyPubkey, pdaMoneyPubkey, bider} = await bidOnce(provider, auctionProgram, auction, bidPrice);
 
-
-    });    
+      const auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+      assert.ok(auctionAccount.ongoing);
+      assert.ok(!auctionAccount.noBid);
+      assert.ok(auctionAccount.bider.equals(bider.publicKey));
+      //assert.ok(auctionAccount.moneyRefund.equals(biderMoneyPubkey));
+      //const biderMoneyNum = (await serumCommon.getTokenAccount(provider, biderMoneyPubkey)).amount;
+      const pdaMoneyNum = (await serumCommon.getTokenAccount(provider, pdaMoneyPubkey)).amount;
+      //assert.ok(biderMoneyNum == 89);
+      assert.ok(pdaMoneyNum == 11);
+    });
 })
+
+async function bidOnce(provider, auctionProgram, auction, bidPrice) {
+  let bider = new anchor.web3.Account();
+  let feePayerPubkey = provider.wallet.publicKey;
+  let moneyPubkey = await createMint(provider, feePayerPubkey);
+  let biderMoneyAccount = await createTokenAccountWithBalance(provider, moneyPubkey, bider.publicKey, 100);
+  let auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+  let [pda] = await anchor.web3.PublicKey.findProgramAddress([auctionAccount.seller.toBuffer()], auctionProgram.programId);
+  let pdaMoneyAccount = await createTokenAccount(provider, moneyPubkey, pda);
+  
+  await auctionProgram.rpc.processBid(new anchor.BN(10), {
+    accounts: {
+      auction: auction.publicKey,
+      bider: bider.publicKey,
+      from: biderMoneyAccount,
+      fromAuth: bider.publicKey,
+      moneyHolder: pdaMoneyAccount,
+      moneyHolderAuth: pda,
+      oriMoneyRefund: auctionAccount.moneyRefund,
+      moneyProgram: TOKEN_PROGRAM_ID,
+    },
+    signers: [bider],
+  });
+
+  return {
+    from: biderMoneyAccount,
+    moneyHolder: pdaMoneyAccount,
+    bider: bider,
+  }
+}
 
 async function createAuction(program, nftProgram, price) {
   let auction = new anchor.web3.Account();
@@ -57,7 +101,7 @@ async function createAuction(program, nftProgram, price) {
     auction: auction,
     seller: seller,
     nftHolder: nftHolderPubkey,
-  }
+  };
 }
 
 async function createTokenAccount(provider, mint, owner) {
