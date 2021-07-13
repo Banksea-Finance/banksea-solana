@@ -30,16 +30,17 @@ describe("start Auction", () =>{
     it("bid once", async() => {
       const bidPrice = new anchor.BN(11);
       const {auction, seller, nftHolder} = await createAuction(auctionProgram, nftProgram, price);
-      const {biderMoneyPubkey, pdaMoneyPubkey, bider} = await bidOnce(provider, auctionProgram, auction, bidPrice);
+      const {biderMoneyAccount, pdaMoneyAccount, bider} = await bidOnce(provider, auctionProgram, auction, bidPrice);
 
       const auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
       assert.ok(auctionAccount.ongoing);
       assert.ok(!auctionAccount.noBid);
       assert.ok(auctionAccount.bider.equals(bider.publicKey));
-      //assert.ok(auctionAccount.moneyRefund.equals(biderMoneyPubkey));
-      //const biderMoneyNum = (await serumCommon.getTokenAccount(provider, biderMoneyPubkey)).amount;
-      const pdaMoneyNum = (await serumCommon.getTokenAccount(provider, pdaMoneyPubkey)).amount;
-      //assert.ok(biderMoneyNum == 89);
+      assert.ok(auctionAccount.moneyRefund.equals(biderMoneyAccount));
+      const biderMoneyNum = (await serumCommon.getTokenAccount(provider, biderMoneyAccount)).amount;
+      const pdaMoneyNum = (await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount;
+      console.log(biderMoneyNum);
+      assert.ok(biderMoneyNum == 89);
       assert.ok(pdaMoneyNum == 11);
     });
 })
@@ -53,7 +54,7 @@ async function bidOnce(provider, auctionProgram, auction, bidPrice) {
   let [pda] = await anchor.web3.PublicKey.findProgramAddress([auctionAccount.seller.toBuffer()], auctionProgram.programId);
   let pdaMoneyAccount = await createTokenAccount(provider, moneyPubkey, pda);
   
-  await auctionProgram.rpc.processBid(new anchor.BN(10), {
+  await auctionProgram.rpc.processBid(bidPrice, {
     accounts: {
       auction: auction.publicKey,
       bider: bider.publicKey,
@@ -68,10 +69,10 @@ async function bidOnce(provider, auctionProgram, auction, bidPrice) {
   });
 
   return {
-    from: biderMoneyAccount,
-    moneyHolder: pdaMoneyAccount,
-    bider: bider,
-  }
+    biderMoneyAccount,
+    pdaMoneyAccount,
+    bider,
+  };
 }
 
 async function createAuction(program, nftProgram, price) {
