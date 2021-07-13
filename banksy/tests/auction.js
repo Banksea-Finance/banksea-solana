@@ -30,7 +30,7 @@ describe("start Auction", () =>{
     it("bid once", async() => {
       const bidPrice = new anchor.BN(11);
       const {auction, seller, nftHolder} = await createAuction(auctionProgram, nftProgram, price);
-      const {biderMoneyAccount, pdaMoneyAccount, bider} = await bidOnce(provider, auctionProgram, auction, bidPrice);
+      const {biderMoneyAccount, pdaMoneyAccount, bider, moneyPubkey} = await bidOnce(provider, auctionProgram, auction, bidPrice);
 
       const auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
       assert.ok(auctionAccount.ongoing);
@@ -39,10 +39,53 @@ describe("start Auction", () =>{
       assert.ok(auctionAccount.moneyRefund.equals(biderMoneyAccount));
       const biderMoneyNum = (await serumCommon.getTokenAccount(provider, biderMoneyAccount)).amount;
       const pdaMoneyNum = (await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount;
-      console.log(biderMoneyNum);
+      //console.log(biderMoneyNum);
       assert.ok(biderMoneyNum == 89);
       assert.ok(pdaMoneyNum == 11);
     });
+
+    it("bid twice", async() => {
+      const firstPrice = new anchor.BN(11);
+      const {auction, seller, nftHolder} = await createAuction(auctionProgram, nftProgram, price);
+      let {biderMoneyAccount, pdaMoneyAccount, bider, moneyPubkey} = await bidOnce(provider, auctionProgram, auction, firstPrice);
+      const biderMoneyAccount1 = biderMoneyAccount;
+      const bider1 = bider;
+
+      {
+        const secondPrice = new anchor.BN(15);
+        let bider2 = new anchor.web3.Account();
+        let biderMoneyAccount = await createTokenAccountWithBalance(provider, moneyPubkey, bider2.publicKey, 100);
+        let auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+        let [pda] = await anchor.web3.PublicKey.findProgramAddress([auctionAccount.seller.toBuffer()], auctionProgram.programId);
+  
+        await auctionProgram.rpc.processBid(secondPrice, {
+          accounts: {
+            auction: auction.publicKey,
+            bider: bider2.publicKey,
+            from: biderMoneyAccount,
+            fromAuth: bider2.publicKey,
+            moneyHolder: pdaMoneyAccount,
+            moneyHolderAuth: pda,
+            oriMoneyRefund: biderMoneyAccount1,
+            moneyProgram: TOKEN_PROGRAM_ID,
+          },
+          signers: [bider2],
+        });
+
+        const biderMoneyAccount2 = biderMoneyAccount;
+        
+
+        auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+        assert.ok(auctionAccount.ongoing);
+        assert.ok(!auctionAccount.noBid);
+        assert.ok(auctionAccount.bider.equals(bider2.publicKey));
+        assert.ok(auctionAccount.moneyRefund.equals(biderMoneyAccount2));
+        assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount1)).amount == 100);
+        assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount2)).amount == 85);
+        assert.ok((await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount == 15);
+      }
+      
+    })
 })
 
 async function bidOnce(provider, auctionProgram, auction, bidPrice) {
@@ -62,7 +105,7 @@ async function bidOnce(provider, auctionProgram, auction, bidPrice) {
       fromAuth: bider.publicKey,
       moneyHolder: pdaMoneyAccount,
       moneyHolderAuth: pda,
-      oriMoneyRefund: auctionAccount.moneyRefund,
+      oriMoneyRefund: biderMoneyAccount,
       moneyProgram: TOKEN_PROGRAM_ID,
     },
     signers: [bider],
@@ -72,6 +115,7 @@ async function bidOnce(provider, auctionProgram, auction, bidPrice) {
     biderMoneyAccount,
     pdaMoneyAccount,
     bider,
+    moneyPubkey,
   };
 }
 
