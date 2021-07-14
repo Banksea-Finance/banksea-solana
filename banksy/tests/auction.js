@@ -13,7 +13,7 @@ describe("start Auction", () =>{
     const nftProgram = anchor.workspace.Banksy;
 
     it("create a auction", async() => {
-        const {auction, seller, nftHolder} = await createAuction(auctionProgram, nftProgram, price);
+        const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
 
         const auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
 
@@ -29,7 +29,7 @@ describe("start Auction", () =>{
     
     it("bid once", async() => {
       const bidPrice = new anchor.BN(11);
-      const {auction, seller, nftHolder} = await createAuction(auctionProgram, nftProgram, price);
+      const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
       const {biderMoneyAccount, pdaMoneyAccount, bider, moneyPubkey} = await bidOnce(provider, auctionProgram, auction, bidPrice);
 
       const auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
@@ -46,7 +46,7 @@ describe("start Auction", () =>{
 
     it("bid twice", async() => {
       const firstPrice = new anchor.BN(11);
-      const {auction, seller, nftHolder} = await createAuction(auctionProgram, nftProgram, price);
+      const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
       let {biderMoneyAccount, pdaMoneyAccount, bider, moneyPubkey} = await bidOnce(provider, auctionProgram, auction, firstPrice);
       const biderMoneyAccount1 = biderMoneyAccount;
       const bider1 = bider;
@@ -83,10 +83,53 @@ describe("start Auction", () =>{
         assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount1)).amount == 100);
         assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount2)).amount == 85);
         assert.ok((await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount == 15);
-      }
-      
+      }      
+    });
+
+    it("close auction", async() => {
+      const bidPrice = new anchor.BN(11);
+      const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
+      const {biderMoneyAccount, pdaMoneyAccount, bider, moneyPubkey} = await bidOnce(provider, auctionProgram, auction, bidPrice);
+
+      let {sellerMoneyAccount, biderNftAccount,} = await closeAuction(provider, auctionProgram, auction, pdaMoneyAccount, moneyPubkey, seller, nftHolder, bider, nftPubkey, nftProgram);
+
+      let auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+      assert.ok(!auctionAccount.ongoing);
+      assert.ok((await serumCommon.getTokenAccount(provider, sellerMoneyAccount)).amount == 11);
+      assert.ok((await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount == 0);      
+      const biderNftAccount2 = await nftProgram.account.userAccount.fetch(biderNftAccount);
+      assert.ok(biderNftAccount2.amount == 10);
+      const nftHolder2 = await nftProgram.account.userAccount.fetch(nftHolder);
+      assert.ok(nftHolder2.amount == 0);
     })
 })
+
+async function closeAuction(provider, auctionProgram, auction, pdaMoneyAccount, moneyPubkey, seller, nftHolder, bider, nftPubkey, nftProgram) {
+  let auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+  let [pda] = await anchor.web3.PublicKey.findProgramAddress([auctionAccount.seller.toBuffer()], auctionProgram.programId);
+  let sellerMoneyAccount = await createTokenAccount(provider, moneyPubkey, seller.publicKey);
+  let biderNftAccount = await findUserAccount(nftProgram, bider.publicKey, nftPubkey);
+  await auctionProgram.rpc.closeAuction({
+    accounts: {
+      auction: auction.publicKey,
+      seller: seller.publicKey,
+      moneyHolder: pdaMoneyAccount,
+      moneyHolderAuth: pda, 
+      moneyReceiver:sellerMoneyAccount,
+      nftHolder: nftHolder,
+      nftHolderAuth: pda,
+      nftReceiver: biderNftAccount,
+      moneyProgram: TOKEN_PROGRAM_ID,
+      nftProgram: nftProgram.programId,
+    },
+    signers: [seller],
+  });
+
+  return {
+    sellerMoneyAccount,
+    biderNftAccount,
+  }
+}
 
 async function bidOnce(provider, auctionProgram, auction, bidPrice) {
   let bider = new anchor.web3.Account();
@@ -146,6 +189,7 @@ async function createAuction(program, nftProgram, price) {
     auction: auction,
     seller: seller,
     nftHolder: nftHolderPubkey,
+    nftPubkey: nftPublicKey,
   };
 }
 

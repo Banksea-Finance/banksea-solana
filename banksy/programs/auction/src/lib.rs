@@ -128,12 +128,20 @@ pub struct Bid<'info> {
 pub struct CloseAuction<'info> {
     #[account(mut, "auction.ongoing")]
     auction: ProgramAccount<'info, Auction>,
+    #[account(signer)]
+    seller: AccountInfo<'info>,
+    #[account(mut)]
     money_holder: CpiAccount<'info, TokenAccount>,
+    #[account("&money_holder.owner == money_holder_auth.key")]
     money_holder_auth: AccountInfo<'info>,
+    #[account(mut)]
     money_receiver: CpiAccount<'info, TokenAccount>,
+    #[account(mut)]
     nft_holder: CpiAccount<'info, UserAccount>,
     nft_holder_auth: AccountInfo<'info>,
+    #[account(mut)]
     nft_receiver: CpiAccount<'info, UserAccount>,
+    #[account("money_program.key == &token::ID")]
     money_program: AccountInfo<'info>,
     nft_program: AccountInfo<'info>,
 }
