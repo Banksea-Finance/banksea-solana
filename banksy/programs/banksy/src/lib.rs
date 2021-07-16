@@ -13,14 +13,14 @@ pub mod banksy {
         ctx.accounts.user.nft = *ctx.accounts.nft.to_account_info().key;
         ctx.accounts.user.amount = supply;
 
-        msg!("event: {{ name: CreateNftEvent, data: {{ nft:{:?}, supply:{:?}, uri:{:?} }} }}", *ctx.accounts.nft.to_account_info().key, supply, uri);
+        msg!("\"event\": {{ \"name\": \"CreateNftEvent\", \"data\": {{ \"nft\":\"{:?}\", \"supply\":\"{:?}\", \"uri\":{:?} }} }}", *ctx.accounts.nft.to_account_info().key, supply, uri);
         emit!(CreateNftEvent{
             nft: *ctx.accounts.nft.to_account_info().key, 
             uri: uri, 
             supply: supply,
         }); 
         msg!(
-            "event: {{ name: TransferEvent, data: {{ nft:{:?}, from:{:?}, to:{:?}, from_authority:{:?}, to_authority:{:?}, amount:{:?} }} }}",
+            "\"event\": {{ \"name\": \"TransferEvent\", \"data\": {{ \"nft\":\"{:?}\", \"from\":\"{:?}\", \"to\":\"{:?}\", \"from_authority\":\"{:?}\", \"to_authority\":\"{:?}\", \"amount\":\"{:?}\" }} }}",
             *ctx.accounts.nft.to_account_info().key, Pubkey::new(&[0u8; 32]), *ctx.accounts.user.to_account_info().key, Pubkey::new(&[0u8; 32]), ctx.accounts.user.authority, supply
         );
         
@@ -62,7 +62,7 @@ pub mod banksy {
         ctx.accounts.to.amount = ctx.accounts.to.amount.checked_add(amount).unwrap();
 
         msg!(
-            "event: {{ name: TransferEvent, data: {{ nft:{:?}, from:{:?}, to:{:?}, from_authority:{:?}, to_authority:{:?}, amount:{:?} }} }}",
+            "\"event\": {{ \"name\": \"TransferEvent\", \"data\": {{ \"nft\":\"{:?}\", \"from\":\"{:?}\", \"to\":\"{:?}\", \"from_authority\":\"{:?}\", \"to_authority\":\"{:?}\", \"amount\":\"{:?}\" }} }}",
             ctx.accounts.from.nft, *ctx.accounts.from.to_account_info().key, *ctx.accounts.to.to_account_info().key, ctx.accounts.from.authority, ctx.accounts.to.authority, amount
         );
 
