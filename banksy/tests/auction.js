@@ -91,7 +91,7 @@ describe("start Auction", () =>{
       const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
       const {biderMoneyAccount, pdaMoneyAccount, bider, moneyPubkey} = await bidOnce(provider, auctionProgram, auction, bidPrice);
 
-      let {sellerMoneyAccount, biderNftAccount,} = await closeAuction(provider, auctionProgram, auction, pdaMoneyAccount, moneyPubkey, seller, nftHolder, bider, nftPubkey, nftProgram);
+      let {sellerMoneyAccount, biderNftAccount} = await closeAuction(provider, auctionProgram, auction, pdaMoneyAccount, moneyPubkey, seller, nftHolder, bider, nftPubkey, nftProgram);
 
       let auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
       assert.ok(!auctionAccount.ongoing);
@@ -102,6 +102,44 @@ describe("start Auction", () =>{
       const nftHolder2 = await nftProgram.account.userAccount.fetch(nftHolder);
       assert.ok(nftHolder2.amount == 0);
     })
+
+    it("close auction without a bid", async() => {
+      const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
+      let feePayerPubkey = provider.wallet.publicKey;
+      let moneyPubkey = await createMint(provider, feePayerPubkey);
+      let [pda] = await anchor.web3.PublicKey.findProgramAddress([seller.publicKey.toBuffer()], auctionProgram.programId);
+      let pdaMoneyAccount = await createTokenAccountWithBalance(provider, moneyPubkey, pda, 0);
+      let sellerMoneyAccount = await createTokenAccount(provider, moneyPubkey, seller.publicKey);
+      let sellerNftAccount = await findUserAccount(nftProgram, seller.publicKey, nftPubkey);
+
+      await auctionProgram.rpc.closeAuction({
+        accounts: {
+          auction: auction.publicKey,
+          seller: seller.publicKey,
+          moneyHolder: pdaMoneyAccount,
+          moneyHolderAuth: pda,
+          moneyReceiver: sellerMoneyAccount,
+          nftHolder: nftHolder,
+          nftHolderAuth: pda,
+          nftReceiver: sellerNftAccount,
+          moneyProgram: TOKEN_PROGRAM_ID,
+          nftProgram: nftProgram.programId,
+        },
+        signers: [seller],
+      });
+
+      let auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+
+      assert.ok(!auctionAccount.ongoing);
+      assert.ok(auctionAccount.noBid);
+      const nftHolder2 = await nftProgram.account.userAccount.fetch(nftHolder);
+      assert.ok(nftHolder2.amount == 0);
+      const sellerNftAccount2 = await nftProgram.account.userAccount.fetch(sellerNftAccount);
+      console.log(sellerNftAccount2.amount);
+      assert.ok(sellerNftAccount2.amount == 100);
+      assert.ok((await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount == 0);
+      assert.ok((await serumCommon.getTokenAccount(provider, sellerMoneyAccount)).amount == 0);
+    });
 })
 
 async function closeAuction(provider, auctionProgram, auction, pdaMoneyAccount, moneyPubkey, seller, nftHolder, bider, nftPubkey, nftProgram) {
