@@ -1,7 +1,7 @@
 const assert = require('assert');
 const anchor = require('@project-serum/anchor');
 
-describe('banksy', () => {
+describe('banksy transfer', () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());
   // Program for the tests.
@@ -14,6 +14,7 @@ describe('banksy', () => {
   it('Create a nft', async () => {
     const uri = "ipfs://ipfs/QmVLAo3EQvkkQKjLTt1dawYsehSEnwYBi19vzh85pohpuw";
     const supply = new anchor.BN(100);
+    
 
     nftAccount = await createNftAccount(program, uri, supply, user1Wallet);
     
@@ -52,7 +53,7 @@ describe('banksy', () => {
       transfer(program, nftAccount, user1Wallet, user2Wallet, amount);
     });
     await program.removeEventListener(listener);
-
+    
 
     const user1Account = await findUserAccount(program, user1Wallet.publicKey, nftAccount);
     const user2Account = await findUserAccount(program, user2Wallet.publicKey, nftAccount);
@@ -85,6 +86,7 @@ async function createNftAccount(program, uri, supply, userKey) {
   const nftKey = anchor.web3.Keypair.generate();
   const userAccount = await program.account.userAccount.associatedAddress(userKey.publicKey, nftKey.publicKey);
   // create a nft to a account
+  
 
   await program.rpc.createNft(uri, supply, {
     accounts: {
