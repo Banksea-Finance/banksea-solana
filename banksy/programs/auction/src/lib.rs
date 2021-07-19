@@ -20,13 +20,20 @@ pub mod auction {
     pub fn process_bid(ctx: Context<Bid>, price: u64) -> ProgramResult {
         let auction = &mut ctx.accounts.auction;
 
-        if price <= auction.price {
-            //todo: return Error
+        // No lower price accepted 
+        if price < auction.price {
+            // return Error
             return Err(AuctionErr::BidPirceTooLow.into());
         }
 
+        // If someone has offered a price 
         if auction.no_bid == false {
-            // todo: transfer money from money_holder to money_refund
+            // If someone has offered a price, the same price will not be accepted 
+            if price == auction.price {
+                // return Error
+                return Err(AuctionErr::BidPirceTooLow.into());
+            }
+            // transfer money from money_holder to money_refund
             let (_, seed) = Pubkey::find_program_address(&[&auction.seller.to_bytes()], &ctx.program_id);
             let seeds = &[auction.seller.as_ref(), &[seed]];
             let signer = &[&seeds[..]];
