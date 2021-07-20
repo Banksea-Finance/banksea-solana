@@ -12,7 +12,7 @@ describe("start Auction", () =>{
     const price = new anchor.BN(10);
     const nftProgram = anchor.workspace.Banksy;
 
-    /*it("create a auction", async() => {
+    it("create a auction", async() => {
         const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
 
         const auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
@@ -25,7 +25,7 @@ describe("start Auction", () =>{
         const auctionNftHolder = await nftProgram.account.userAccount.fetch(auctionAccount.nftHolder);
         assert.ok(auctionNftHolder.amount == 10);
         assert.ok(auctionAccount.price == 10);
-    });  */
+    });  
     
     it("bid once (>price)", async() => {
       const bidPrice = new anchor.BN(11);
@@ -79,7 +79,7 @@ describe("start Auction", () =>{
     });
 
 
-    /*it("bid twice", async() => {
+    it("bid twice (second > first)", async() => {
       const firstPrice = new anchor.BN(11);
       const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
       let {biderMoneyAccount, pdaMoneyAccount, bider, moneyPubkey} = await bidOnce(provider, auctionProgram, auction, firstPrice);
@@ -118,6 +118,99 @@ describe("start Auction", () =>{
         assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount1)).amount == 100);
         assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount2)).amount == 85);
         assert.ok((await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount == 15);
+      }      
+    });
+
+    it("bid twice (second == first)", async() => {
+      const firstPrice = new anchor.BN(11);
+      const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
+      let {biderMoneyAccount, pdaMoneyAccount, bider, moneyPubkey} = await bidOnce(provider, auctionProgram, auction, firstPrice);
+      const biderMoneyAccount1 = biderMoneyAccount;
+      const bider1 = bider;
+
+      {
+        const secondPrice = new anchor.BN(11);
+        let bider2 = new anchor.web3.Account();
+        let biderMoneyAccount = await createTokenAccountWithBalance(provider, moneyPubkey, bider2.publicKey, 100);
+        let auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+        let [pda] = await anchor.web3.PublicKey.findProgramAddress([auctionAccount.seller.toBuffer()], auctionProgram.programId);
+  
+        try{
+          await auctionProgram.rpc.processBid(secondPrice, {
+            accounts: {
+              auction: auction.publicKey,
+              bider: bider2.publicKey,
+              from: biderMoneyAccount,
+              fromAuth: bider2.publicKey,
+              moneyHolder: pdaMoneyAccount,
+              moneyHolderAuth: pda,
+              oriMoneyRefund: biderMoneyAccount1,
+              moneyProgram: TOKEN_PROGRAM_ID,
+            },
+            signers: [bider2],
+          });
+        }
+        catch (error) {
+          console.log("expected Error");
+        }        
+
+        const biderMoneyAccount2 = biderMoneyAccount;        
+
+        auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+        assert.ok(auctionAccount.ongoing);
+        assert.ok(!auctionAccount.noBid);
+        assert.ok(auctionAccount.bider.equals(bider1.publicKey));
+        assert.ok(auctionAccount.moneyRefund.equals(biderMoneyAccount1));
+        assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount1)).amount == 89);
+        assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount2)).amount == 100);
+        assert.ok((await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount == 11);
+      }      
+    });
+
+    it("bid twice (second < first)", async() => {
+      const firstPrice = new anchor.BN(11);
+      const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
+      let {biderMoneyAccount, pdaMoneyAccount, bider, moneyPubkey} = await bidOnce(provider, auctionProgram, auction, firstPrice);
+      const biderMoneyAccount1 = biderMoneyAccount;
+      const bider1 = bider;
+
+      {
+        const secondPrice = new anchor.BN(10);
+        let bider2 = new anchor.web3.Account();
+        let biderMoneyAccount = await createTokenAccountWithBalance(provider, moneyPubkey, bider2.publicKey, 100);
+        let auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+        let [pda] = await anchor.web3.PublicKey.findProgramAddress([auctionAccount.seller.toBuffer()], auctionProgram.programId);
+  
+        try{
+          await auctionProgram.rpc.processBid(secondPrice, {
+            accounts: {
+              auction: auction.publicKey,
+              bider: bider2.publicKey,
+              from: biderMoneyAccount,
+              fromAuth: bider2.publicKey,
+              moneyHolder: pdaMoneyAccount,
+              moneyHolderAuth: pda,
+              oriMoneyRefund: biderMoneyAccount1,
+              moneyProgram: TOKEN_PROGRAM_ID,
+            },
+            signers: [bider2],
+          });
+        }
+        catch (error) {
+          console.log("expected Error");
+        }    
+
+        const biderMoneyAccount2 = biderMoneyAccount;
+        
+
+        auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+        assert.ok(auctionAccount.ongoing);
+        assert.ok(!auctionAccount.noBid);
+        assert.ok(auctionAccount.bider.equals(bider1.publicKey));
+        assert.ok(auctionAccount.moneyRefund.equals(biderMoneyAccount1));
+        assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount1)).amount == 89);
+        assert.ok((await serumCommon.getTokenAccount(provider, biderMoneyAccount2)).amount == 100);
+        assert.ok((await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount == 11);
       }      
     });
 
@@ -174,7 +267,7 @@ describe("start Auction", () =>{
       assert.ok(sellerNftAccount2.amount == 100);
       assert.ok((await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount == 0);
       assert.ok((await serumCommon.getTokenAccount(provider, sellerMoneyAccount)).amount == 0);
-    });*/
+    });
 })
 
 async function closeAuction(provider, auctionProgram, auction, pdaMoneyAccount, moneyPubkey, seller, nftHolder, bider, nftPubkey, nftProgram) {
