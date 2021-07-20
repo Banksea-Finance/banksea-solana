@@ -63,6 +63,42 @@ describe("start Auction", () =>{
       assert.ok(biderMoneyNum == 100);
       assert.ok(pdaMoneyNum == 0);
     });
+
+    it("bid once (==price && right money_type)", async() => {
+      const bidPrice = new anchor.BN(10);
+      const {auction, seller, nftHolder, nftPubkey, moneyPubkey} = await createAuction(provider, auctionProgram, nftProgram, price);
+      const {biderMoneyAccount, pdaMoneyAccount, bider} = await bidOnce(provider, auctionProgram, auction, moneyPubkey, bidPrice);
+
+      const auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+      assert.ok(auctionAccount.ongoing);
+      assert.ok(!auctionAccount.noBid);
+      assert.ok(auctionAccount.bider.equals(bider.publicKey));
+      assert.ok(auctionAccount.moneyRefund.equals(biderMoneyAccount));
+      const biderMoneyNum = (await serumCommon.getTokenAccount(provider, biderMoneyAccount)).amount;
+      const pdaMoneyNum = (await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount;
+      //console.log(biderMoneyNum);
+      assert.ok(biderMoneyNum == 90);
+      assert.ok(pdaMoneyNum == 10);
+    });
+
+    it("bid once (<price && right money_type)", async() => {
+      const bidPrice = new anchor.BN(9);
+      const {auction, seller, nftHolder, nftPubkey, moneyPubkey} = await createAuction(provider, auctionProgram, nftProgram, price);
+      let feePayerPubkey = provider.wallet.publicKey;
+      let moneyPubkey2 = await createMint(provider, feePayerPubkey);
+      const {biderMoneyAccount, pdaMoneyAccount, bider} = await bidOnce(provider, auctionProgram, auction, moneyPubkey2, bidPrice);
+      
+      const auctionAccount = await auctionProgram.account.auction.fetch(auction.publicKey);
+      assert.ok(auctionAccount.ongoing);
+      assert.ok(auctionAccount.noBid);
+      assert.ok(auctionAccount.bider.equals(seller.publicKey));
+      //assert.ok(auctionAccount.moneyRefund.equals(biderMoneyAccount));
+      const biderMoneyNum = (await serumCommon.getTokenAccount(provider, biderMoneyAccount)).amount;
+      const pdaMoneyNum = (await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount;
+      //console.log(biderMoneyNum);
+      assert.ok(biderMoneyNum == 100);
+      assert.ok(pdaMoneyNum == 0);
+    });
 })
 
 async function bidOnce(provider, auctionProgram, auction, moneyPubkey, bidPrice) {
