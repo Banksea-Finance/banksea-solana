@@ -1,3 +1,5 @@
+// Not applicable to the current auction program test
+
 const anchor = require('@project-serum/anchor');
 const assert = require("assert");
 const TokenInstructions = require("@project-serum/serum").TokenInstructions;
@@ -12,6 +14,8 @@ describe("start Auction", () =>{
     const price = new anchor.BN(10);
     const nftProgram = anchor.workspace.Banksy;
 
+    // Not applicable to the current auction program test
+    /*
     it("create a auction", async() => {
         const {auction, seller, nftHolder, nftPubkey} = await createAuction(auctionProgram, nftProgram, price);
 
@@ -268,6 +272,8 @@ describe("start Auction", () =>{
       assert.ok((await serumCommon.getTokenAccount(provider, pdaMoneyAccount)).amount == 0);
       assert.ok((await serumCommon.getTokenAccount(provider, sellerMoneyAccount)).amount == 0);
     });
+    */ 
+    // Not applicable to the current auction program test
 })
 
 async function closeAuction(provider, auctionProgram, auction, pdaMoneyAccount, moneyPubkey, seller, nftHolder, bider, nftPubkey, nftProgram) {

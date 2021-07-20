@@ -13,7 +13,9 @@ pub mod auction {
         auction.seller = *ctx.accounts.seller.key;
         auction.bider = *ctx.accounts.seller.key;  // bider's init value is seller
         auction.nft_holder = *ctx.accounts.nft_holder.to_account_info().key;
+        auction.money_type = *ctx.accounts.money_type.key;
         auction.price = price;
+
         Ok(())
     } 
 
@@ -106,6 +108,7 @@ pub struct CreateAuction<'info> {
     auction: ProgramAccount<'info, Auction>, 
     seller: AccountInfo<'info>,
     nft_holder: CpiAccount<'info, UserAccount>,
+    money_type: AccountInfo<'info>,
     rent: Sysvar<'info, Rent>,
 }
 
@@ -115,6 +118,8 @@ pub struct Bid<'info> {
     auction: ProgramAccount<'info, Auction>,
     #[account(signer)]
     bider: AccountInfo<'info>,
+    #[account("&auction.money_type == money_type.key")]
+    money_type: AccountInfo<'info>,
     #[account(
         mut
     )]
@@ -161,6 +166,7 @@ pub struct Auction {
     bider: Pubkey,
     nft_holder: Pubkey,
     money_refund: Pubkey,
+    money_type: Pubkey,
     price: u64,
 }
 
