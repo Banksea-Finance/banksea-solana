@@ -1,2 +1,2 @@
-# banksy-solana
-Banksy - cross-chain NFT based on Solana
+# banksea-solana
+Banksea - cross-chain NFT based on Solana
